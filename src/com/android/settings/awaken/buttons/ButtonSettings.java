@@ -58,6 +58,7 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
     private static final String TAG = "ButtonSettings";
 
     private static final String KEY_BUTTON_BACKLIGHT = "button_backlight";
+    private static final String KEY_BACK_LONG_PRESS = "hardware_keys_back_long_press";
     private static final String KEY_HOME_LONG_PRESS = "hardware_keys_home_long_press";
     private static final String KEY_HOME_DOUBLE_TAP = "hardware_keys_home_double_tap";
     private static final String KEY_MENU_PRESS = "hardware_keys_menu_press";
@@ -76,6 +77,7 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
     private static final String CATEGORY_CAMERA = "camera_key";
     private static final String CATEGORY_BACKLIGHT = "key_backlight";
 
+    private ListPreference mBackLongPressAction;
     private ListPreference mHomeLongPressAction;
     private ListPreference mHomeDoubleTapAction;
     private ListPreference mMenuPressAction;
@@ -133,6 +135,8 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
         // Force Navigation bar related options
         mDisableNavigationKeys = findPreference(DISABLE_NAV_KEYS);
 
+        Action defaultBackLongPressAction = Action.fromIntSafe(res.getInteger(
+                com.android.internal.R.integer.config_longPressOnBackBehavior));
         Action defaultHomeLongPressAction = Action.fromIntSafe(res.getInteger(
                 com.android.internal.R.integer.config_longPressOnHomeBehavior));
         Action defaultHomeDoubleTapAction = Action.fromIntSafe(res.getInteger(
@@ -145,6 +149,9 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
                 com.android.internal.R.integer.config_pressOnAssistBehavior));
         Action defaultAssistLongPressAction = Action.fromIntSafe(res.getInteger(
                 com.android.internal.R.integer.config_longPressOnAssistBehavior));
+        Action backLongPressAction = Action.fromSettings(resolver,
+                Settings.System.KEY_BACK_LONG_PRESS_ACTION,
+                defaultBackLongPressAction);
         Action homeLongPressAction = Action.fromSettings(resolver,
                 Settings.System.KEY_HOME_LONG_PRESS_ACTION,
                 defaultHomeLongPressAction);
@@ -181,8 +188,14 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
         if (hasBackKey) {
             if (!showBackWake) {
                 backCategory.removePreference(findPreference(Settings.System.BACK_WAKE_SCREEN));
-                prefScreen.removePreference(backCategory);
             }
+
+            mBackLongPressAction = initList(KEY_BACK_LONG_PRESS, backLongPressAction);
+            if (mDisableNavigationKeys.isChecked()) {
+                mBackLongPressAction.setEnabled(false);
+            }
+
+            hasAnyBindableKey = true;
         }
         if (!hasBackKey || backCategory.getPreferenceCount() == 0) {
             prefScreen.removePreference(backCategory);
@@ -280,6 +293,11 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
             String[] actionEntriesGo = res.getStringArray(R.array.hardware_keys_action_entries_go);
             String[] actionValuesGo = res.getStringArray(R.array.hardware_keys_action_values_go);
 
+            if (hasBackKey) {
+                mBackLongPressAction.setEntries(actionEntriesGo);
+                mBackLongPressAction.setEntryValues(actionValuesGo);
+            }
+
             if (hasHomeKey) {
                 mHomeLongPressAction.setEntries(actionEntriesGo);
                 mHomeLongPressAction.setEntryValues(actionValuesGo);
@@ -348,7 +366,11 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
 
     @Override
     public boolean onPreferenceChange(Preference preference, Object newValue) {
-        if (preference == mHomeLongPressAction) {
+        if (preference == mBackLongPressAction) {
+            handleListChange((ListPreference) preference, newValue,
+                    Settings.System.KEY_BACK_LONG_PRESS_ACTION);
+            return true;
+        }else if (preference == mHomeLongPressAction) {
             handleListChange((ListPreference) preference, newValue,
                     Settings.System.KEY_HOME_LONG_PRESS_ACTION);
             return true;
@@ -410,6 +432,11 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
             backlight.updateSummary();
         }
 
+        if (backCategory != null) {
+            if (mBackLongPressAction != null) {
+                mBackLongPressAction.setEnabled(!navbarEnabled);
+            }
+        }
         if (homeCategory != null) {
             homeCategory.setEnabled(!navbarEnabled);
         }
